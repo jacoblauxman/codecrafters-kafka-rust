@@ -32,10 +32,10 @@ impl KafkaError {
     pub fn to_error_code(&self) -> i16 {
         match self {
             KafkaError::Io(_) => UNKNOWN_SERVER_ERROR,
-            KafkaError::UnsupportedApiKey(_) => UNSUPPORTED_VERSION,
+            KafkaError::UnsupportedApiKey(_) => INVALID_REQUEST,
             KafkaError::InvalidMessageLength(_) => CORRUPT_MESSAGE,
             KafkaError::InvalidString(_) => CORRUPT_MESSAGE,
-            KafkaError::UnsupportedApiVersion(_) => INVALID_REQUEST,
+            KafkaError::UnsupportedApiVersion(_) => UNSUPPORTED_VERSION,
         }
     }
 }
