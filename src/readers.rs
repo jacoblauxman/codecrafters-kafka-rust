@@ -1,35 +1,32 @@
-use std::io::{self, Cursor, Read};
+use std::io::{Cursor, Read};
 
-pub fn read_int16(cursor: &mut Cursor<&[u8]>) -> io::Result<i16> {
+use crate::KafkaError;
+
+pub fn read_int16(cursor: &mut Cursor<&[u8]>) -> Result<i16, KafkaError> {
     let mut buf = [0u8; 2];
     cursor.read_exact(&mut buf)?;
 
     Ok(i16::from_be_bytes(buf))
 }
 
-pub fn read_int32(cursor: &mut Cursor<&[u8]>) -> io::Result<i32> {
+pub fn read_int32(cursor: &mut Cursor<&[u8]>) -> Result<i32, KafkaError> {
     let mut buf = [0u8; 4];
     cursor.read_exact(&mut buf)?;
 
     Ok(i32::from_be_bytes(buf))
 }
 
-pub fn read_nullable_string(cursor: &mut Cursor<&[u8]>) -> io::Result<Option<String>> {
+pub fn read_nullable_string(cursor: &mut Cursor<&[u8]>) -> Result<Option<String>, KafkaError> {
     let len = read_int16(cursor)?;
 
     match len {
         -1 => Ok(None),
-        len if len < 0 => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Invalid NULLABLE_STRING length provided",
-        )),
+        len if len < 0 => Err(KafkaError::InvalidMessageLength(len as i32)),
         len => {
             let mut buf = vec![0u8; len as usize];
             cursor.read_exact(&mut buf)?;
 
-            String::from_utf8(buf)
-                .map(Some)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+            Ok(String::from_utf8(buf).map(Some)?)
         }
     }
 }
