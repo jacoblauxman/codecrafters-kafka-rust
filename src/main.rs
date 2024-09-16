@@ -1,3 +1,4 @@
+use redis_starter_rust::handle_connection;
 use std::net::TcpListener;
 
 fn main() {
@@ -5,8 +6,11 @@ fn main() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(_stream) => {
+            Ok(stream) => {
                 println!("accepted new connection");
+                if let Err(e) = handle_connection(stream) {
+                    eprintln!("Error handling connection: {e}");
+                };
             }
             Err(e) => {
                 println!("error: {}", e);
