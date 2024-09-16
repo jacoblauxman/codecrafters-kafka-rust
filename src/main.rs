@@ -1,20 +1,21 @@
 use redis_starter_rust::handle_connection;
-use std::net::TcpListener;
+use tokio::net::TcpListener;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
+#[tokio::main]
+async fn main() -> tokio::io::Result<()> {
+    let listener = TcpListener::bind("127.0.0.1:9092").await?;
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                println!("accepted new connection");
-                if let Err(e) = handle_connection(stream) {
+    match listener.accept().await {
+        Ok((stream, addr)) => {
+            println!("New connection accepted: {}", addr);
+            tokio::spawn(async move {
+                if let Err(e) = handle_connection(stream).await {
                     eprintln!("Error handling connection: {e}");
-                };
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
+                }
+            });
         }
+        Err(e) => eprintln!("Error accepting connection: {e}"),
     }
+
+    Ok(())
 }

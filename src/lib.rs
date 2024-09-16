@@ -1,8 +1,9 @@
-use std::{
-    io::{Cursor, Read, Write},
+use std::io::Cursor;
+use thiserror::Error;
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
-use thiserror::Error;
 
 mod readers;
 use readers::*;
@@ -93,8 +94,9 @@ struct ErrorResponse {
     pub error_code: i16,
 }
 
-pub fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
-    let request_buffer = read_request(&mut stream)?;
+// pub fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
+pub async fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
+    let request_buffer = read_request(&mut stream).await?;
     let request_header = match KafkaRequestHeader::parse(&request_buffer) {
         Ok(header) => header,
         Err(e) => {
@@ -111,13 +113,13 @@ pub fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
         }),
     };
 
-    send_response(&mut stream, &response)?;
+    send_response(&mut stream, &response).await?;
     Ok(())
 }
 
-fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, KafkaError> {
+async fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, KafkaError> {
     let mut size_buf = [0u8; 4];
-    stream.read_exact(&mut size_buf)?;
+    stream.read_exact(&mut size_buf).await?;
     let size = i32::from_be_bytes(size_buf);
 
     if size <= 0 || size > 1_000_000 {
@@ -125,7 +127,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, KafkaError> {
     }
 
     let mut buf = vec![0u8; size as usize];
-    stream.read_exact(&mut buf)?;
+    stream.read_exact(&mut buf).await?;
 
     Ok(buf)
 }
@@ -149,7 +151,7 @@ fn process_request(
     }
 }
 
-fn send_response(stream: &mut TcpStream, response: &KafkaResponse) -> Result<(), KafkaError> {
+async fn send_response(stream: &mut TcpStream, response: &KafkaResponse) -> Result<(), KafkaError> {
     let mut res_buf = vec![];
 
     match response {
@@ -176,19 +178,20 @@ fn send_response(stream: &mut TcpStream, response: &KafkaResponse) -> Result<(),
         }
     };
 
-    write_response_with_len(stream, &res_buf)
+    write_response_with_len(stream, &res_buf).await
 }
 
-fn write_response_with_len(
+async fn write_response_with_len(
     stream: &mut TcpStream,
     response_buffer: &[u8],
 ) -> Result<(), KafkaError> {
     let size = response_buffer.len() as i32;
-    stream.write_all(&size.to_be_bytes())?;
-    stream.write_all(response_buffer)?;
+    stream.write_all(&size.to_be_bytes()).await?;
+    stream.write_all(response_buffer).await?;
 
-    match stream.flush() {
-        Ok(_) => Ok(()),
-        Err(e) => Err(KafkaError::Io(e)),
+    if let Err(e) = stream.flush().await {
+        return Err(KafkaError::Io(e));
     }
+
+    Ok(())
 }
