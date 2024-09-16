@@ -166,7 +166,7 @@ fn send_response(stream: &mut TcpStream, response: &KafkaResponse) -> Result<(),
                 res_buf.extend_from_slice(TAG_BUFFER);
             }
 
-            res_buf.extend_from_slice(&[0]); // throttle_time_ms (i32)
+            res_buf.extend_from_slice(&[0u8; 4]); // throttle_time_ms (i32)
             res_buf.extend_from_slice(TAG_BUFFER);
         }
 
@@ -176,8 +176,7 @@ fn send_response(stream: &mut TcpStream, response: &KafkaResponse) -> Result<(),
         }
     };
 
-    write_response_with_len(stream, &res_buf)?;
-    Ok(())
+    write_response_with_len(stream, &res_buf)
 }
 
 fn write_response_with_len(
