@@ -94,27 +94,27 @@ struct ErrorResponse {
     pub error_code: i16,
 }
 
-// pub fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
 pub async fn handle_connection(mut stream: TcpStream) -> Result<(), KafkaError> {
-    let request_buffer = read_request(&mut stream).await?;
-    let request_header = match KafkaRequestHeader::parse(&request_buffer) {
-        Ok(header) => header,
-        Err(e) => {
-            eprintln!("Error parsing incoming request header: {:?}", e);
-            return Ok(());
-        }
-    };
+    loop {
+        let request_buffer = read_request(&mut stream).await?;
+        let request_header = match KafkaRequestHeader::parse(&request_buffer) {
+            Ok(header) => header,
+            Err(e) => {
+                eprintln!("Error parsing incoming request header: {:?}", e);
+                return Ok(());
+            }
+        };
 
-    let response = match process_request(&request_header, &request_buffer) {
-        Ok(response) => response,
-        Err(e) => KafkaResponse::Error(ErrorResponse {
-            correlation_id: request_header.correlation_id,
-            error_code: e.to_error_code(),
-        }),
-    };
+        let response = match process_request(&request_header, &request_buffer) {
+            Ok(response) => response,
+            Err(e) => KafkaResponse::Error(ErrorResponse {
+                correlation_id: request_header.correlation_id,
+                error_code: e.to_error_code(),
+            }),
+        };
 
-    send_response(&mut stream, &response).await?;
-    Ok(())
+        send_response(&mut stream, &response).await?;
+    }
 }
 
 async fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, KafkaError> {
